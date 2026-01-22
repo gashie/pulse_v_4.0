@@ -1,0 +1,7 @@
+{
+  "watch": ["server.js", "handlers", "routes", "services", "state"],
+  "ignore": ["data/*", "node_modules/*", "*.log"],
+  "ext": "js,json",
+  "delay": 1000,
+  "verbose": false
+}

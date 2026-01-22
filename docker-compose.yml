@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  pulse-monitor:
+    build: .
+    container_name: pulse-monitor
+    ports:
+      - "3032:3032"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3032
+    volumes:
+      - pulse-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3032/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  pulse-data:

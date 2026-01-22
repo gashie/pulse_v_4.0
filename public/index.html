@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pulse Monitor v4.0</title>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0d0d14;
+      --bg-secondary: #13131d;
+      --bg-tertiary: #1a1a27;
+      --bg-card: #1e1e2e;
+      --bg-hover: #252538;
+      --border: #2a2a3d;
+      --text-primary: #e4e4e7;
+      --text-secondary: #a1a1aa;
+      --text-muted: #71717a;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --success: #22c55e;
+      --success-bg: rgba(34, 197, 94, 0.1);
+      --warning: #f59e0b;
+      --warning-bg: rgba(245, 158, 11, 0.1);
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.1);
+      --info: #3b82f6;
+      --radius: 8px;
+      --radius-lg: 12px;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-sans: 'Inter', -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); background: var(--bg-primary); color: var(--text-primary); line-height: 1.6; min-height: 100vh; }
+    .app { display: flex; min-height: 100vh; }
+    .sidebar { width: 260px; background: var(--bg-secondary); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; }
+    .sidebar-header { padding: 20px; border-bottom: 1px solid var(--border); }
+    .logo { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 20px; }
+    .logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent), #a855f7); border-radius: var(--radius); display: flex; align-items: center; justify-content: center; }
+    .sidebar-nav { flex: 1; padding: 16px 12px; overflow-y: auto; }
+    .nav-section { margin-bottom: 24px; }
+    .nav-section-title { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; padding: 0 12px; margin-bottom: 8px; }
+    .nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius); color: var(--text-secondary); cursor: pointer; transition: all 0.15s; font-size: 14px; }
+    .nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .nav-item.active { background: var(--accent); color: white; }
+    .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .nav-badge { margin-left: auto; background: var(--danger); color: white; font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 10px; min-width: 20px; text-align: center; }
+    .main { flex: 1; margin-left: 260px; display: flex; flex-direction: column; }
+    .topbar { height: 64px; background: var(--bg-secondary); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; position: sticky; top: 0; z-index: 50; }
+    .topbar-title { font-size: 18px; font-weight: 600; }
+    .topbar-actions { display: flex; align-items: center; gap: 12px; }
+    .content { flex: 1; padding: 24px; overflow-y: auto; }
+    .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 20px; }
+    .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .card-title { font-size: 16px; font-weight: 600; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; display: flex; align-items: flex-start; gap: 16px; }
+    .stat-icon { width: 48px; height: 48px; border-radius: var(--radius); display: flex; align-items: center; justify-content: center; }
+    .stat-icon.success { background: var(--success-bg); color: var(--success); }
+    .stat-icon.danger { background: var(--danger-bg); color: var(--danger); }
+    .stat-icon.warning { background: var(--warning-bg); color: var(--warning); }
+    .stat-icon.info { background: rgba(99, 102, 241, 0.1); color: var(--accent); }
+    .stat-content { flex: 1; }
+    .stat-value { font-size: 28px; font-weight: 700; line-height: 1.2; }
+    .stat-label { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: var(--radius); font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.15s; border: none; font-family: inherit; }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--bg-hover); }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-success { background: var(--success); color: white; }
+    .btn-sm { padding: 6px 12px; font-size: 13px; }
+    .btn-icon { padding: 8px; }
+    .btn svg { width: 16px; height: 16px; }
+    .status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .status-up { background: var(--success-bg); color: var(--success); }
+    .status-up .status-dot { background: var(--success); }
+    .status-down { background: var(--danger-bg); color: var(--danger); }
+    .status-down .status-dot { background: var(--danger); animation: blink-dot 1s infinite; }
+    .status-pending { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+    .status-pending .status-dot { background: var(--warning); }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    @keyframes blink-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+    .health-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--radius); font-size: 13px; font-weight: 600; }
+    .health-healthy { background: var(--success-bg); color: var(--success); }
+    .health-warning { background: var(--warning-bg); color: var(--warning); }
+    .health-critical { background: var(--danger-bg); color: var(--danger); }
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
+    .form-input, .form-select, .form-textarea { width: 100%; padding: 10px 12px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-primary); font-size: 14px; font-family: inherit; transition: border-color 0.15s; }
+    .form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: var(--accent); }
+    .form-textarea { min-height: 100px; resize: vertical; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-checkbox { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .form-checkbox input { width: 18px; height: 18px; accent-color: var(--accent); }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.2s; }
+    .modal-overlay.active { opacity: 1; visibility: visible; }
+    .modal { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); width: 90%; max-width: 600px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; transform: scale(0.95); transition: transform 0.2s; }
+    .modal-overlay.active .modal { transform: scale(1); }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 20px; border-bottom: 1px solid var(--border); }
+    .modal-title { font-size: 18px; font-weight: 600; }
+    .modal-close { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius); cursor: pointer; color: var(--text-muted); transition: all 0.15s; }
+    .modal-close:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 12px; padding: 16px 20px; border-top: 1px solid var(--border); }
+    .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+    .app-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; cursor: pointer; transition: all 0.2s; }
+    .app-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .app-card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .app-icon { width: 48px; height: 48px; border-radius: var(--radius); display: flex; align-items: center; justify-content: center; font-size: 24px; }
+    .app-name { font-size: 18px; font-weight: 600; }
+    .app-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+    .app-stats { display: flex; gap: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+    .app-stat { text-align: center; }
+    .app-stat-value { font-size: 20px; font-weight: 700; }
+    .app-stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; }
+    .monitor-list { display: flex; flex-direction: column; gap: 12px; }
+    .monitor-item { background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; display: flex; align-items: center; gap: 16px; transition: all 0.15s; }
+    .monitor-item:hover { border-color: var(--accent); }
+    .monitor-info { flex: 1; min-width: 0; }
+    .monitor-name { font-weight: 600; margin-bottom: 4px; }
+    .monitor-url { font-size: 13px; color: var(--text-muted); font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .monitor-meta { display: flex; align-items: center; gap: 16px; }
+    .monitor-type { background: var(--bg-hover); padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+    .monitor-response { font-family: var(--font-mono); font-size: 13px; color: var(--text-muted); }
+    .monitor-actions { display: flex; gap: 8px; }
+    .tabs { display: flex; gap: 4px; background: var(--bg-tertiary); padding: 4px; border-radius: var(--radius); margin-bottom: 20px; }
+    .tab { padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; color: var(--text-secondary); transition: all 0.15s; }
+    .tab:hover { color: var(--text-primary); }
+    .tab.active { background: var(--accent); color: white; }
+    .terminal { background: #0a0a0f; border-radius: var(--radius); font-family: var(--font-mono); font-size: 13px; overflow: hidden; }
+    .terminal-header { background: var(--bg-tertiary); padding: 8px 12px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
+    .terminal-dots { display: flex; gap: 6px; }
+    .terminal-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .terminal-dot.red { background: #ff5f56; }
+    .terminal-dot.yellow { background: #ffbd2e; }
+    .terminal-dot.green { background: #27c93f; }
+    .terminal-body { padding: 16px; max-height: 300px; overflow-y: auto; }
+    .terminal-output { white-space: pre-wrap; word-break: break-all; color: #22c55e; }
+    .terminal-error { color: #ef4444; }
+    .terminal-input-line { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 8px 16px; border-top: 1px solid var(--border); }
+    .terminal-prompt { color: var(--accent); }
+    .terminal-input { flex: 1; background: transparent; border: none; color: var(--text-primary); font-family: inherit; font-size: inherit; outline: none; }
+    .toast-container { position: fixed; top: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 12px; }
+    .toast { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; display: flex; align-items: center; gap: 12px; min-width: 300px; animation: slideIn 0.3s ease; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); }
+    .toast.success { border-left: 4px solid var(--success); }
+    .toast.error { border-left: 4px solid var(--danger); }
+    .toast.warning { border-left: 4px solid var(--warning); }
+    .toast.info { border-left: 4px solid var(--info); }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+    .empty-state svg { width: 64px; height: 64px; margin-bottom: 16px; opacity: 0.5; }
+    .empty-state h3 { font-size: 18px; color: var(--text-secondary); margin-bottom: 8px; }
+    .dropdown { position: relative; }
+    .dropdown-menu { position: absolute; top: 100%; right: 0; margin-top: 4px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); min-width: 180px; z-index: 100; opacity: 0; visibility: hidden; transform: translateY(-10px); transition: all 0.15s; }
+    .dropdown.active .dropdown-menu { opacity: 1; visibility: visible; transform: translateY(0); }
+    .dropdown-item { display: flex; align-items: center; gap: 8px; padding: 10px 12px; font-size: 14px; color: var(--text-secondary); cursor: pointer; transition: all 0.15s; }
+    .dropdown-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .dropdown-item.danger { color: var(--danger); }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+    th { font-weight: 500; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+    tr:hover td { background: var(--bg-hover); }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+    /* View Switcher */
+    .view-switcher { display: flex; gap: 8px; background: var(--bg-tertiary); padding: 4px; border-radius: var(--radius); }
+    .view-btn { padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text-secondary); transition: all 0.15s; background: transparent; border: none; display: flex; align-items: center; gap: 6px; }
+    .view-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
+    .view-btn.active { background: var(--accent); color: white; }
+    .view-btn svg { width: 16px; height: 16px; }
+
+    /* Monitor Cards */
+    .monitor-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; justify-content: start; }
+    .monitor-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 16px; }
+    .monitor-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+    .monitor-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+    .monitor-card.status-up::before { background: var(--success); }
+    .monitor-card.status-down::before { background: var(--danger); animation: pulse 1.5s ease-in-out infinite; }
+    .monitor-card.status-pending::before { background: var(--warning); }
+    .monitor-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .monitor-card-header > div:first-child { flex: 1; min-width: 0; }
+    .monitor-card-title { font-size: 16px; font-weight: 600; margin-bottom: 4px; line-height: 1.3; }
+    .monitor-card-subtitle { font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .monitor-card-header .status { flex-shrink: 0; }
+    .monitor-card-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .monitor-card-metric { text-align: center; }
+    .metric-value { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+    .metric-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+    .monitor-card-history { display: flex; gap: 2px; height: 24px; align-items: flex-end; }
+    .monitor-card-history .history-bar { flex: 1; background: var(--bg-tertiary); border-radius: 2px 2px 0 0; transition: all 0.2s; min-width: 3px; height: 100%; }
+    .monitor-card-history .history-bar.up { background: var(--success); }
+    .monitor-card-history .history-bar.down { background: var(--danger); animation: pulse-bar 1.5s ease-in-out infinite; }
+    .monitor-card-history .history-bar.pending { background: var(--warning); }
+    .monitor-card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .monitor-card-actions .btn { flex: 1; min-width: 0; justify-content: center; }
+    .monitor-badge { padding: 2px 5px; border-radius: 3px; font-size: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap; }
+    .monitor-badge.type { background: var(--bg-hover); color: var(--text-secondary); }
+    .monitor-badge.app { background: rgba(99, 102, 241, 0.15); color: var(--accent); }
+    .monitor-badge.group { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+
+    /* Compact Monitor View */
+    .monitor-compact { display: flex; flex-direction: column; gap: 8px; }
+    .monitor-compact-item { background: var(--bg-tertiary); border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: var(--radius); padding: 12px 16px; display: flex; align-items: center; gap: 12px; transition: all 0.15s; cursor: pointer; }
+    .monitor-compact-item:hover { border-color: var(--accent); background: var(--bg-hover); }
+    .monitor-compact-item.status-up { border-left-color: var(--success); }
+    .monitor-compact-item.status-down { border-left-color: var(--danger); animation: pulse 1s infinite; }
+    .monitor-compact-item.status-pending { border-left-color: var(--warning); }
+    .monitor-compact-status { width: 10px; height: 10px; border-radius: 50%; }
+    .monitor-compact-info { flex: 1; min-width: 0; }
+    .monitor-compact-name { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
+    .monitor-compact-meta { font-size: 11px; color: var(--text-muted); display: flex; gap: 12px; }
+
+    /* Grid View */
+    .monitor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+    .monitor-grid-item { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; text-align: center; cursor: pointer; transition: all 0.2s; position: relative; }
+    .monitor-grid-item:hover { border-color: var(--accent); transform: scale(1.02); }
+    .monitor-grid-item::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+    .monitor-grid-item.status-up::before { background: var(--success); }
+    .monitor-grid-item.status-down::before { background: var(--danger); animation: pulse 1s infinite; }
+    .monitor-grid-item.status-pending::before { background: var(--warning); }
+    .monitor-grid-icon { width: 48px; height: 48px; margin: 0 auto 12px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .monitor-grid-icon.status-up { background: var(--success-bg); color: var(--success); }
+    .monitor-grid-icon.status-down { background: var(--danger-bg); color: var(--danger); }
+    .monitor-grid-icon.status-pending { background: var(--warning-bg); color: var(--warning); }
+    .monitor-grid-name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+    .monitor-grid-type { font-size: 11px; color: var(--text-muted); text-transform: uppercase; }
+    .monitor-grid-response { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); margin-top: 8px; }
+
+    /* Filter Bar */
+    .filter-bar { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    .filter-search { flex: 1; min-width: 200px; padding: 8px 12px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-primary); font-size: 14px; }
+    .filter-select { padding: 8px 12px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text-primary); font-size: 13px; min-width: 130px; }
+    .filter-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .filter-chip { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s; border: 1px solid var(--border); background: var(--bg-tertiary); color: var(--text-secondary); }
+    .filter-chip:hover { border-color: var(--accent); color: var(--text-primary); }
+    .filter-chip.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+    /* Status Pulse Animations */
+    @keyframes pulse-slow {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(0.98); }
+    }
+    @keyframes blink {
+      0%, 49% { opacity: 1; background: var(--danger); }
+      50%, 100% { opacity: 0.3; background: var(--danger); }
+    }
+    @keyframes pulse-border {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    @keyframes pulse-bar {
+      0%, 100% { opacity: 1; transform: scaleY(1); }
+      50% { opacity: 0.6; transform: scaleY(0.95); }
+    }
+    .status-dot.blink {
+      animation: blink 800ms infinite;
+    }
+    .monitor-card.status-down {
+      animation: pulse-slow 2s infinite;
+    }
+    .monitor-card.status-down::before {
+      animation: pulse-border 1s infinite;
+    }
+
+    /* Detail Page */
+    .detail-header { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 20px; position: relative; overflow: hidden; }
+    .detail-header::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; }
+    .detail-header.status-up::before { background: var(--success); }
+    .detail-header.status-down::before { background: var(--danger); animation: pulse 1.5s ease-in-out infinite; }
+    .detail-header.status-pending::before { background: var(--warning); }
+    .detail-title { font-size: 20px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 12px; }
+    .detail-subtitle { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; font-family: var(--font-mono); }
+    .detail-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 16px; margin-bottom: 16px; }
+    .detail-meta-item { display: flex; flex-direction: column; align-items: center; text-align: center; }
+    .detail-meta-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+    .detail-meta-value { font-size: 20px; font-weight: 700; line-height: 1.2; }
+    .detail-content { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+    .detail-section { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; }
+    .detail-section-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+
+    /* History Chart */
+    .history-chart { height: 200px; display: flex; align-items: flex-end; gap: 4px; margin: 20px 0; }
+    .history-bar { flex: 1; background: var(--bg-tertiary); border-radius: 4px 4px 0 0; transition: all 0.2s; cursor: pointer; position: relative; min-width: 2px; }
+    .history-bar.up { background: var(--success); }
+    .history-bar.down { background: var(--danger); }
+    .history-bar.pending { background: var(--warning); }
+    .history-bar:hover { opacity: 0.8; transform: scaleY(1.05); }
+    .history-bar-tooltip { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: var(--bg-primary); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; font-size: 11px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.2s; margin-bottom: 4px; z-index: 10; }
+    .history-bar:hover .history-bar-tooltip { opacity: 1; }
+
+    /* Timeline */
+    .timeline { position: relative; padding-left: 30px; }
+    .timeline-item { position: relative; padding-bottom: 20px; }
+    .timeline-item::before { content: ''; position: absolute; left: -23px; top: 6px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--border); background: var(--bg-card); }
+    .timeline-item.up::before { border-color: var(--success); background: var(--success); }
+    .timeline-item.down::before { border-color: var(--danger); background: var(--danger); }
+    .timeline-item::after { content: ''; position: absolute; left: -18px; top: 18px; width: 2px; height: calc(100% - 12px); background: var(--border); }
+    .timeline-item:last-child::after { display: none; }
+    .timeline-time { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+    .timeline-content { font-size: 13px; color: var(--text-secondary); }
+    .timeline-status { font-weight: 600; }
+
+    @media (max-width: 1200px) {
+      .monitor-cards { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+      .detail-content { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .sidebar { transform: translateX(-100%); }
+      .main { margin-left: 0; }
+      .form-row { grid-template-columns: 1fr; }
+      .monitor-cards { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .app-grid { grid-template-columns: 1fr; }
+      .monitor-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+      .filter-bar { padding: 12px; }
+      .view-switcher { width: 100%; justify-content: space-between; }
+      .view-btn span { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <div class="logo-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg></div>
+          <span>Pulse Monitor</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section">
+          <div class="nav-section-title">Overview</div>
+          <div class="nav-item active" data-page="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>Dashboard</div>
+          <div class="nav-item" data-page="applications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>Applications</div>
+          <div class="nav-item" data-page="monitors"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>Monitors</div>
+          <div class="nav-item" data-page="groups"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>Groups</div>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-title">Alerting</div>
+          <div class="nav-item" data-page="alerts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>Alerts<span class="nav-badge" id="alertBadge" style="display:none">0</span></div>
+          <div class="nav-item" data-page="incidents"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>Incidents</div>
+          <div class="nav-item" data-page="contacts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>Contacts</div>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-title">Logs & Reports</div>
+          <div class="nav-item" data-page="activity"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>Activity Log</div>
+          <div class="nav-item" data-page="reports"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>Reports</div>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-title">System</div>
+          <div class="nav-item" data-page="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>Settings</div>
+        </div>
+      </nav>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <h1 class="topbar-title" id="pageTitle">Dashboard</h1>
+        <div style="display: flex; align-items: center; gap: 16px; flex: 1; justify-content: flex-end;">
+          <div id="networkStatus" class="status status-up" style="display: flex; align-items: center; gap: 6px; cursor: help;" title="Internet connectivity status">
+            <span class="status-dot"></span>
+            <span style="font-size: 12px;">Connected</span>
+          </div>
+          <div class="topbar-actions">
+          <button class="btn btn-secondary btn-sm" onclick="exportConfig()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>Export</button>
+          <label class="btn btn-secondary btn-sm"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Import<input type="file" accept=".json" onchange="importConfig(event)" style="display:none"></label>
+          <button class="btn btn-primary btn-sm" onclick="showAddModal()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>Add New</button>
+        </div>
+        </div>
+      </header>
+      <div class="content" id="content"></div>
+    </main>
+  </div>
+  <div class="toast-container" id="toastContainer"></div>
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalTitle">Modal</h2>
+        <div class="modal-close" onclick="closeModal()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></div>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer" id="modalFooter"></div>
+    </div>
+  </div>
+  <script>
+    const state = { monitors: [], applications: [], groups: [], statuses: {}, alerts: [], incidents: [], contacts: [], contactGroups: [], settings: {}, stats: {}, activityLogs: [], logs: [], currentPage: 'dashboard', editingId: null, viewMode: 'cards', filters: { search: '', status: 'all', type: 'all', application: 'all', group: 'all' }, detailView: null, detailId: null };
+    const socket = io();
+    
+    socket.on('connect', () => showToast('Connected', 'success'));
+    socket.on('disconnect', () => showToast('Disconnected', 'error'));
+    socket.on('init', (data) => { Object.assign(state, data); render(); });
+    socket.on('network-status', (data) => { updateNetworkStatus(data); });
+    socket.on('monitors-update', (d) => { state.monitors = d; render(); });
+    socket.on('applications-update', (d) => { state.applications = d; render(); });
+    socket.on('groups-update', (d) => { state.groups = d; render(); });
+    socket.on('statuses-update', (d) => { state.statuses = d; render(); });
+    socket.on('alerts-update', (d) => { state.alerts = d; updateAlertBadge(); if(state.currentPage === 'alerts') render(); playAlertSound(d.filter(a=>a.status==='active')[0]); });
+    socket.on('incidents-update', (d) => { state.incidents = d; if(state.currentPage === 'incidents') render(); });
+    socket.on('contacts-update', (d) => { state.contacts = d; if(state.currentPage === 'contacts') render(); });
+    socket.on('contactGroups-update', (d) => { state.contactGroups = d; if(state.currentPage === 'contacts') render(); });
+    socket.on('settings-update', (d) => { state.settings = d; if(state.currentPage === 'settings') render(); });
+    socket.on('stats-update', (d) => { state.stats = d; if(state.currentPage === 'dashboard') render(); });
+    socket.on('activity-update', (d) => { state.activityLogs = d; if(state.currentPage === 'activity') render(); });
+    
+    document.querySelectorAll('.nav-item').forEach(item => item.addEventListener('click', () => { const page = item.dataset.page; if(page) navigateTo(page); }));
+    
+    function navigateTo(page) {
+      state.currentPage = page;
+      state.detailView = null;
+      state.detailId = null;
+      document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+      document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
+      const titles = { dashboard:'Dashboard', applications:'Applications', monitors:'Monitors', groups:'Groups', alerts:'Alerts', incidents:'Incidents', contacts:'Contacts', activity:'Activity Log', reports:'Reports', settings:'Settings' };
+      document.getElementById('pageTitle').textContent = titles[page] || page;
+      render();
+    }
+    
+    function render() {
+      const content = document.getElementById('content');
+      // Handle detail views
+      if(state.detailView) {
+        switch(state.detailView) {
+          case 'monitor': content.innerHTML = renderMonitorDetail(state.detailId); return;
+          case 'application': content.innerHTML = renderApplicationDetail(state.detailId); return;
+          case 'group': content.innerHTML = renderGroupDetail(state.detailId); return;
+        }
+      }
+      // Handle main pages
+      switch(state.currentPage) {
+        case 'dashboard': content.innerHTML = renderDashboard(); break;
+        case 'applications': content.innerHTML = renderApplications(); break;
+        case 'monitors': content.innerHTML = renderMonitors(); break;
+        case 'groups': content.innerHTML = renderGroups(); break;
+        case 'alerts': content.innerHTML = renderAlerts(); break;
+        case 'incidents': content.innerHTML = renderIncidents(); break;
+        case 'contacts': content.innerHTML = renderContacts(); break;
+        case 'activity': content.innerHTML = renderActivity(); break;
+        case 'reports': content.innerHTML = renderReports(); break;
+        case 'settings': {
+          content.innerHTML = renderSettings();
+          // Restore the active tab after rendering
+          setTimeout(() => {
+            const activeTab = document.querySelector(`.tabs .tab[onclick*="'${currentSettingsTab}'"]`);
+            if (activeTab) {
+              switchSettingsTab(activeTab, currentSettingsTab);
+            }
+          }, 0);
+          break;
+        }
+      }
+      updateAlertBadge();
+    }
+    
+    function updateAlertBadge() {
+      const active = state.alerts.filter(a => a.status === 'active').length;
+      const badge = document.getElementById('alertBadge');
+      badge.textContent = active; badge.style.display = active > 0 ? 'block' : 'none';
+    }
+    
+    function getAppHealth(id) {
+      const app = state.applications.find(a => a.id === id);
+      if(!app) return { health:'healthy', up:0, down:0, total:0, uptime:100 };
+      const monitors = state.monitors.filter(m => m.applicationId === id);
+      const total = monitors.length;
+      const up = monitors.filter(m => state.statuses[m.id]?.status === 'UP').length;
+      const down = monitors.filter(m => state.statuses[m.id]?.status === 'DOWN').length;
+      let health = 'healthy';
+      if(down > 0) health = 'critical';
+      else if(total === 0 || monitors.some(m => !state.statuses[m.id] || state.statuses[m.id].status === 'PENDING')) health = 'warning';
+      return { health, up, down, total, uptime: total > 0 ? Math.round((up/total)*100) : 100 };
+    }
+    
+    function renderDashboard() {
+      const stats = state.stats?.monitors || {};
+      // Create dashboard state if not exists
+      if (!state.dashboardFilter) state.dashboardFilter = 'all';
+
+      // Get monitors based on dashboard filter
+      let displayMonitors = state.monitors;
+      if (state.dashboardFilter !== 'all') {
+        displayMonitors = state.monitors.filter(m => {
+          const s = state.statuses[m.id];
+          return s && s.status && s.status.toLowerCase() === state.dashboardFilter;
+        });
+      }
+
+      return `
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-icon success"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg></div><div class="stat-content"><div class="stat-value">${stats.up||0}</div><div class="stat-label">Services Up</div></div></div>
+          <div class="stat-card"><div class="stat-icon danger"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg></div><div class="stat-content"><div class="stat-value">${stats.down||0}</div><div class="stat-label">Services Down</div></div></div>
+          <div class="stat-card"><div class="stat-icon warning"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg></div><div class="stat-content"><div class="stat-value">${state.alerts.filter(a=>a.status==='active').length}</div><div class="stat-label">Active Alerts</div></div></div>
+          <div class="stat-card"><div class="stat-icon info"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></div><div class="stat-content"><div class="stat-value">${state.applications.length}</div><div class="stat-label">Applications</div></div></div>
+        </div>
+        ${state.applications.length > 0 ? `<div class="card" style="margin-bottom:20px"><div class="card-header"><h3 class="card-title">Application Health</h3></div><div class="app-grid">${state.applications.map(app => { const h = getAppHealth(app.id); return `<div class="app-card" onclick="viewApplication('${app.id}')"><div class="app-card-header"><div class="app-icon" style="background:${app.color}20;color:${app.color}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg></div><div><div class="app-name">${app.name}</div><span class="health-badge health-${h.health}">${h.health}</span></div></div><div class="app-stats"><div class="app-stat"><div class="app-stat-value" style="color:var(--success)">${h.up}</div><div class="app-stat-label">Up</div></div><div class="app-stat"><div class="app-stat-value" style="color:var(--danger)">${h.down}</div><div class="app-stat-label">Down</div></div><div class="app-stat"><div class="app-stat-value">${h.uptime}%</div><div class="app-stat-label">Uptime</div></div></div></div>`; }).join('')}</div></div>` : ''}
+
+        ${state.monitors.length > 0 ? `
+        <div style="margin-bottom:16px; display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+          <span style="font-size:13px; color:var(--text-muted); font-weight:500">Quick Filter:</span>
+          <button class="filter-chip ${state.dashboardFilter==='all'?'active':''}" onclick="state.dashboardFilter='all';render()">All (${state.monitors.length})</button>
+          <button class="filter-chip ${state.dashboardFilter==='up'?'active':''}" onclick="state.dashboardFilter='up';render()" style="border-color:var(--success);${state.dashboardFilter==='up'?'':'color:var(--success)'}">${stats.up||0} Up</button>
+          <button class="filter-chip ${state.dashboardFilter==='down'?'active':''}" onclick="state.dashboardFilter='down';render()" style="border-color:var(--danger);${state.dashboardFilter==='down'?'':'color:var(--danger)'}">${stats.down||0} Down</button>
+          <button class="filter-chip ${state.dashboardFilter==='pending'?'active':''}" onclick="state.dashboardFilter='pending';render()" style="border-color:var(--warning);${state.dashboardFilter==='pending'?'':'color:var(--warning)'}">Pending</button>
+        </div>` : ''}
+
+        <div class="card dashboard-recent"><div class="card-header"><h3 class="card-title">Recent Monitors ${displayMonitors.length !== state.monitors.length ? `(${displayMonitors.length} of ${state.monitors.length})` : `(${state.monitors.length})`}</h3><button class="btn btn-primary btn-sm" onclick="showMonitorModal()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>Add Monitor</button></div>
+        ${state.monitors.length === 0 ? '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg><h3>No monitors yet</h3><p>Add your first monitor</p></div>' : displayMonitors.length === 0 ? '<div class="empty-state" style="padding:40px"><h3>No monitors with this status</h3><p>Try a different filter</p></div>' : `<div class="monitor-cards">${displayMonitors.slice(0,6).map(m => renderMonitorCard(m)).join('')}</div>${displayMonitors.length > 6 ? `<div style="text-align:center;margin-top:16px"><button class="btn btn-secondary btn-sm" onclick="navigateTo('monitors')">View All ${displayMonitors.length} Monitors</button></div>`:''}`}
+        </div>
+      `;
+    }
+    
+    function renderMonitorItem(m) {
+      const s = state.statuses[m.id] || {};
+      const sc = s.status === 'UP' ? 'up' : s.status === 'DOWN' ? 'down' : 'pending';
+      const url = m.url || `${m.host}:${m.port||''}`;
+      return `<div class="monitor-item"><span class="status status-${sc}"><span class="status-dot ${sc==='down'?'blink':''}"></span>${s.status||'PENDING'}</span><div class="monitor-info"><div class="monitor-name">${m.name}</div><div class="monitor-url">${url}</div></div><div class="monitor-meta"><span class="monitor-type">${m.type}</span><span class="monitor-response">${s.responseTime?s.responseTime+'ms':'-'}</span></div><div class="monitor-actions"><button class="btn btn-icon btn-secondary" onclick="checkMonitorNow('${m.id}')" title="Check Now"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg></button><button class="btn btn-icon btn-secondary" onclick="editMonitor('${m.id}')" title="Edit"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button class="btn btn-icon btn-secondary" onclick="deleteMonitor('${m.id}')" title="Delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></div></div>`;
+    }
+
+    // Helper Functions
+    function getFilteredMonitors() {
+      return state.monitors.filter(m => {
+        const s = state.statuses[m.id] || {};
+        const status = s.status || 'PENDING';
+        const matchesSearch = !state.filters.search || m.name.toLowerCase().includes(state.filters.search.toLowerCase()) || (m.url && m.url.toLowerCase().includes(state.filters.search.toLowerCase())) || (m.host && m.host.toLowerCase().includes(state.filters.search.toLowerCase()));
+        const matchesStatus = state.filters.status === 'all' || status.toLowerCase() === state.filters.status;
+        const matchesType = state.filters.type === 'all' || m.type === state.filters.type;
+        const matchesApp = state.filters.application === 'all' || m.applicationId === state.filters.application;
+        const matchesGroup = state.filters.group === 'all' || m.groupId === state.filters.group;
+        return matchesSearch && matchesStatus && matchesType && matchesApp && matchesGroup;
+      });
+    }
+
+    function setFilter(key, value) {
+      state.filters[key] = value;
+      render();
+    }
+
+    function setViewMode(mode) {
+      state.viewMode = mode;
+      render();
+    }
+
+    function navigateToMonitorDetail(id) {
+      state.detailView = 'monitor';
+      state.detailId = id;
+      document.getElementById('pageTitle').textContent = 'Monitor Details';
+      render();
+    }
+
+    function navigateToApplicationDetail(id) {
+      state.detailView = 'application';
+      state.detailId = id;
+      document.getElementById('pageTitle').textContent = 'Application Details';
+      render();
+    }
+
+    function navigateToGroupDetail(id) {
+      state.detailView = 'group';
+      state.detailId = id;
+      document.getElementById('pageTitle').textContent = 'Group Details';
+      render();
+    }
+
+    function goBack() {
+      state.detailView = null;
+      state.detailId = null;
+      navigateTo(state.currentPage);
+    }
+
+    // Monitor Card Views
+    function renderMonitorCard(m) {
+      const s = state.statuses[m.id] || {};
+      const sc = s.status === 'UP' ? 'up' : s.status === 'DOWN' ? 'down' : 'pending';
+      const url = m.url || `${m.host}:${m.port||''}`;
+      const app = state.applications.find(a => a.id === m.applicationId);
+      const uptime = s.totalChecks ? ((s.successfulChecks / s.totalChecks) * 100).toFixed(2) : 100.00;
+      const history = (s.history || []).slice(-30);
+
+      return `<div class="monitor-card status-${sc}" onclick="navigateToMonitorDetail('${m.id}')">
+        <div class="monitor-card-header">
+          <div>
+            <div class="monitor-card-title">${m.name}</div>
+            <div class="monitor-card-subtitle">${m.type.toUpperCase()} • ${url}</div>
+          </div>
+          <span class="status status-${sc}"><span class="status-dot ${sc==='down'?'blink':''}"></span>${s.status||'PENDING'}</span>
+        </div>
+
+        <div class="monitor-card-metrics">
+          <div class="monitor-card-metric">
+            <div class="metric-value">${s.responseTime||0}ms</div>
+            <div class="metric-label">RESPONSE</div>
+          </div>
+          <div class="monitor-card-metric">
+            <div class="metric-value">${uptime}%</div>
+            <div class="metric-label">UPTIME</div>
+          </div>
+          <div class="monitor-card-metric">
+            <div class="metric-value">${s.totalChecks||0}</div>
+            <div class="metric-label">CHECKS</div>
+          </div>
+        </div>
+
+        ${history.length > 0 ? `
+          <div class="monitor-card-history">
+            ${history.map(h => {
+              const hsc = h.status === 'UP' ? 'up' : h.status === 'DOWN' ? 'down' : 'pending';
+              return `<div class="history-bar ${hsc}"></div>`;
+            }).join('')}
+          </div>
+        ` : ''}
+
+        <div class="monitor-card-actions" onclick="event.stopPropagation()">
+          <button class="btn btn-icon btn-sm btn-secondary" onclick="checkMonitorNow('${m.id}')" title="Check Now"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>Check Now</button>
+          <button class="btn btn-icon btn-sm btn-secondary" onclick="editMonitor('${m.id}')" title="Pause"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>Pause</button>
+          <button class="btn btn-icon btn-sm btn-secondary" onclick="editMonitor('${m.id}')" title="Edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>Edit</button>
+          <button class="btn btn-icon btn-sm btn-danger" onclick="deleteMonitor('${m.id}')" title="Delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>Delete</button>
+        </div>
+      </div>`;
+    }
+
+    function renderMonitorCompact(m) {
+      const s = state.statuses[m.id] || {};
+      const sc = s.status === 'UP' ? 'up' : s.status === 'DOWN' ? 'down' : 'pending';
+      const url = m.url || `${m.host}:${m.port||''}`;
+      const app = state.applications.find(a => a.id === m.applicationId);
+      return `<div class="monitor-compact-item status-${sc}" onclick="navigateToMonitorDetail('${m.id}')">
+        <span class="monitor-compact-status status-dot ${sc==='down'?'blink':''}" style="background:${sc==='up'?'var(--success)':sc==='down'?'var(--danger)':'var(--warning)'}"></span>
+        <div class="monitor-compact-info">
+          <div class="monitor-compact-name">${m.name}</div>
+          <div class="monitor-compact-meta">
+            <span>${m.type.toUpperCase()}</span>
+            <span>${url}</span>
+            ${app ? `<span>${app.name}</span>` : ''}
+            ${s.responseTime ? `<span>${s.responseTime}ms</span>` : ''}
+          </div>
+        </div>
+        <div onclick="event.stopPropagation()" style="display:flex;gap:6px">
+          <button class="btn btn-icon btn-sm btn-secondary" onclick="checkMonitorNow('${m.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg></button>
+          <button class="btn btn-icon btn-sm btn-secondary" onclick="editMonitor('${m.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+        </div>
+      </div>`;
+    }
+
+    function renderMonitorGrid(m) {
+      const s = state.statuses[m.id] || {};
+      const sc = s.status === 'UP' ? 'up' : s.status === 'DOWN' ? 'down' : 'pending';
+      return `<div class="monitor-grid-item status-${sc}" onclick="navigateToMonitorDetail('${m.id}')">
+        <div class="monitor-grid-icon status-${sc}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg></div>
+        <div class="monitor-grid-name">${m.name}</div>
+        <div class="monitor-grid-type">${m.type}</div>
+        ${s.responseTime ? `<div class="monitor-grid-response">${s.responseTime}ms</div>` : ''}
+      </div>`;
+    }
+
+    function renderMonitorTable(m) {
+      const s = state.statuses[m.id]||{};
+      const sc = s.status === 'UP' ? 'up' : s.status === 'DOWN' ? 'down' : 'pending';
+      const app = state.applications.find(a => a.id === m.applicationId);
+      const url = m.url || `${m.host}:${m.port||''}`;
+      return `<tr onclick="navigateToMonitorDetail('${m.id}')" style="cursor:pointer"><td><span class="status status-${sc}"><span class="status-dot ${sc==='down'?'blink':''}"></span>${s.status||'PENDING'}</span></td><td><strong>${m.name}</strong></td><td><span class="monitor-type">${m.type}</span></td><td style="font-family:var(--font-mono);font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis">${url}</td><td>${s.responseTime?s.responseTime+'ms':'-'}</td><td>${app?`<span style="color:${app.color}">${app.name}</span>`:'-'}</td><td onclick="event.stopPropagation()"><div style="display:flex;gap:4px"><button class="btn btn-icon btn-secondary" onclick="checkMonitorNow('${m.id}')" title="Check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg></button><button class="btn btn-icon btn-secondary" onclick="editMonitor('${m.id}')" title="Edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>${(m.type==='ssh'||m.type==='sftp')?`<button class="btn btn-icon btn-secondary" onclick="showTerminal('${m.id}')" title="Terminal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg></button>`:''}<button class="btn btn-icon btn-secondary" onclick="deleteMonitor('${m.id}')" title="Delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></div></td></tr>`;
+    }
+
+    function renderApplications() {
+      return `<div class="card"><div class="card-header"><h3 class="card-title">Applications (${state.applications.length})</h3><button class="btn btn-primary btn-sm" onclick="showApplicationModal()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>Add Application</button></div>${state.applications.length === 0 ? '<div class="empty-state"><h3>No applications yet</h3><p>Create an application to group related monitors</p></div>' : `<div class="app-grid">${state.applications.map(app => { const h = getAppHealth(app.id); return `<div class="app-card" onclick="navigateToApplicationDetail('${app.id}')"><div class="app-card-header"><div class="app-icon" style="background:${app.color}20;color:${app.color}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg></div><div style="flex:1"><div class="app-name">${app.name}</div><span class="health-badge health-${h.health}">${h.health}</span></div><button class="btn btn-icon btn-secondary" onclick="event.stopPropagation();deleteApplication('${app.id}')" title="Delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></div><div class="app-desc">${app.description||'No description'}</div><div class="app-stats"><div class="app-stat"><div class="app-stat-value" style="color:var(--success)">${h.up}</div><div class="app-stat-label">Up</div></div><div class="app-stat"><div class="app-stat-value" style="color:var(--danger)">${h.down}</div><div class="app-stat-label">Down</div></div><div class="app-stat"><div class="app-stat-value">${h.total}</div><div class="app-stat-label">Total</div></div><div class="app-stat"><div class="app-stat-value">${h.uptime}%</div><div class="app-stat-label">Uptime</div></div></div></div>`; }).join('')}</div>`}</div>`;
+    }
+    
+    function viewApplication(id) {
+      navigateToApplicationDetail(id);
+    }
+
+    function renderMonitors() {
+      const filtered = getFilteredMonitors();
+      const types = [...new Set(state.monitors.map(m => m.type))];
+      return `
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+          <input type="text" class="filter-search" placeholder="Search monitors..." value="${state.filters.search}" oninput="setFilter('search', this.value)">
+          <select class="filter-select" value="${state.filters.status}" onchange="setFilter('status', this.value)">
+            <option value="all">All Status</option>
+            <option value="up" ${state.filters.status==='up'?'selected':''}>UP</option>
+            <option value="down" ${state.filters.status==='down'?'selected':''}>DOWN</option>
+            <option value="pending" ${state.filters.status==='pending'?'selected':''}>PENDING</option>
+          </select>
+          <select class="filter-select" value="${state.filters.type}" onchange="setFilter('type', this.value)">
+            <option value="all">All Types</option>
+            ${types.map(t => `<option value="${t}" ${state.filters.type===t?'selected':''}>${t.toUpperCase()}</option>`).join('')}
+          </select>
+          ${state.applications.length > 0 ? `<select class="filter-select" value="${state.filters.application}" onchange="setFilter('application', this.value)">
+            <option value="all">All Applications</option>
+            ${state.applications.map(a => `<option value="${a.id}" ${state.filters.application===a.id?'selected':''}>${a.name}</option>`).join('')}
+          </select>` : ''}
+          ${state.groups.length > 0 ? `<select class="filter-select" value="${state.filters.group}" onchange="setFilter('group', this.value)">
+            <option value="all">All Groups</option>
+            ${state.groups.map(g => `<option value="${g.id}" ${state.filters.group===g.id?'selected':''}>${g.name}</option>`).join('')}
+          </select>` : ''}
+        </div>
+
+        <!-- Main Card -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Monitors (${filtered.length}${filtered.length !== state.monitors.length ? ` of ${state.monitors.length}` : ''})</h3>
+            <div style="display:flex;gap:12px;align-items:center">
+              <!-- View Switcher -->
+              <div class="view-switcher">
+                <button class="view-btn ${state.viewMode==='cards'?'active':''}" onclick="setViewMode('cards')" title="Card View"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>Cards</button>
+                <button class="view-btn ${state.viewMode==='table'?'active':''}" onclick="setViewMode('table')" title="Table View"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="10" x2="21" y2="10"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="14" x2="21" y2="14"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>Table</button>
+                <button class="view-btn ${state.viewMode==='grid'?'active':''}" onclick="setViewMode('grid')" title="Grid View"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg>Grid</button>
+                <button class="view-btn ${state.viewMode==='compact'?'active':''}" onclick="setViewMode('compact')" title="Compact View"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>Compact</button>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="showMonitorModal()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>Add Monitor</button>
+            </div>
+          </div>
+
+          ${filtered.length === 0 ? '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg><h3>No monitors found</h3><p>' + (state.monitors.length === 0 ? 'Add your first monitor' : 'Try adjusting your filters') + '</p></div>' :
+          state.viewMode === 'cards' ? `<div class="monitor-cards">${filtered.map(m => renderMonitorCard(m)).join('')}</div>` :
+          state.viewMode === 'table' ? `<div class="table-container"><table><thead><tr><th>Status</th><th>Name</th><th>Type</th><th>Target</th><th>Response</th><th>Application</th><th>Actions</th></tr></thead><tbody>${filtered.map(m => renderMonitorTable(m)).join('')}</tbody></table></div>` :
+          state.viewMode === 'grid' ? `<div class="monitor-grid">${filtered.map(m => renderMonitorGrid(m)).join('')}</div>` :
+          state.viewMode === 'compact' ? `<div class="monitor-compact">${filtered.map(m => renderMonitorCompact(m)).join('')}</div>` : ''}
+        </div>
+      `;
+    }
+
+    function renderGroups() {
+      return `<div class="card"><div class="card-header"><h3 class="card-title">Monitor Groups (${state.groups.length})</h3><button class="btn btn-primary btn-sm" onclick="showGroupModal()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>Add Group</button></div>${state.groups.length === 0 ? '<div class="empty-state"><h3>No groups yet</h3></div>' : `<div class="app-grid">${state.groups.map(g => { const monitors = state.monitors.filter(m => m.groupId === g.id); const up = monitors.filter(m => state.statuses[m.id]?.status === 'UP').length; const down = monitors.filter(m => state.statuses[m.id]?.status === 'DOWN').length; return `<div class="app-card" onclick="navigateToGroupDetail('${g.id}')"><div class="app-card-header"><div class="app-icon" style="background:${g.color||'#6366f1'}20;color:${g.color||'#6366f1'}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></div><div style="flex:1"><div class="app-name">${g.name}</div></div><button class="btn btn-icon btn-secondary" onclick="event.stopPropagation();deleteGroup('${g.id}')" title="Delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button></div><div class="app-desc">${g.description||'No description'}</div><div class="app-stats"><div class="app-stat"><div class="app-stat-value">${monitors.length}</div><div class="app-stat-label">Monitors</div></div><div class="app-stat"><div class="app-stat-value" style="color:var(--success)">${up}</div><div class="app-stat-label">Up</div></div><div class="app-stat"><div class="app-stat-value" style="color:var(--danger)">${down}</div><div class="app-stat-label">Down</div></div></div></div>`; }).join('')}</div>`}</div>`;
+    }
+    
+    function viewGroup(id) {
+      navigateToGroupDetail(id);
+    }
+
+    // Detail Page Renderers
+    function renderMonitorDetail(id) {
+      const m = state.monitors.find(x => x.id === id);
+      if(!m) return '<div class="empty-state"><h3>Monitor not found</h3></div>';
+      const s = state.statuses[id] || {};
+      const sc = s.status === 'UP' ? 'up' : s.status === 'DOWN' ? 'down' : 'pending';
+      const url = m.url || `${m.host}:${m.port||''}`;
+      const app = state.applications.find(a => a.id === m.applicationId);
+      const group = state.groups.find(g => g.id === m.groupId);
+      const history = (s.history || []).slice(-100).reverse();
+      const uptime = s.totalChecks ? Math.round((s.successfulChecks / s.totalChecks) * 100) : 0;
+
+      return `
+        <div class="detail-header status-${sc}">
+          <button class="btn btn-secondary btn-sm" onclick="goBack()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>Back</button>
+          <div class="detail-title">${m.name}<span class="status status-${sc}"><span class="status-dot ${sc==='down'?'blink':''}"></span>${s.status||'PENDING'}</span></div>
+          <div class="detail-subtitle">${url}</div>
+          <div class="detail-meta">
+            <div class="detail-meta-item"><div class="detail-meta-label">Response</div><div class="detail-meta-value">${s.responseTime||'-'}ms</div></div>
+            <div class="detail-meta-item"><div class="detail-meta-label">Uptime</div><div class="detail-meta-value">${uptime}%</div></div>
+            <div class="detail-meta-item"><div class="detail-meta-label">Checks</div><div class="detail-meta-value">${s.totalChecks||0}</div></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:16px">
+            <button class="btn btn-primary btn-sm" onclick="checkMonitorNow('${id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>Check Now</button>
+            <button class="btn btn-secondary btn-sm" onclick="editMonitor('${id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>Edit</button>
+            ${(m.type==='ssh'||m.type==='sftp') ? `<button class="btn btn-secondary btn-sm" onclick="showTerminal('${id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>Terminal</button>` : ''}
+            <button class="btn btn-danger btn-sm" onclick="deleteMonitor('${id}');goBack()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>Delete</button>
+          </div>
+        </div>
+
+        <div class="detail-content">
+          <div>
+            <div class="detail-section">
+              <div class="detail-section-title">Status History (Last 100 Checks)</div>
+              ${history.length === 0 ? '<p style="color:var(--text-muted);text-align:center;padding:40px">No history yet</p>' : `
+                <div class="history-chart">
+                  ${history.slice().reverse().map(h => {
+                    const hsc = h.status === 'UP' ? 'up' : h.status === 'DOWN' ? 'down' : 'pending';
+                    const height = Math.min(100, Math.max(10, (h.responseTime || 10) / 10));
+                    return `<div class="history-bar ${hsc}" style="height:${height}%"><div class="history-bar-tooltip">${h.status}<br>${h.responseTime}ms<br>${new Date(h.timestamp).toLocaleTimeString()}</div></div>`;
+                  }).join('')}
+                </div>
+              `}
+            </div>
+
+            <div class="detail-section" style="margin-top:20px">
+              <div class="detail-section-title">Recent Events</div>
+              ${history.length === 0 ? '<p style="color:var(--text-muted);text-align:center;padding:40px">No events yet</p>' : `
+                <div class="timeline">
+                  ${history.slice(0, 20).map(h => {
+                    const hsc = h.status === 'UP' ? 'up' : 'down';
+                    return `<div class="timeline-item ${hsc}"><div class="timeline-time">${new Date(h.timestamp).toLocaleString()}</div><div class="timeline-content"><span class="timeline-status">${h.status}</span> - ${h.message} ${h.responseTime ? `(${h.responseTime}ms)` : ''}</div></div>`;
+                  }).join('')}
+                </div>
+              `}
+            </div>
+          </div>
+
+          <div>
+            <div class="detail-section">
+              <div class="detail-section-title">Configuration</div>
+              <div class="form-group"><label class="form-label">Name</label><div>${m.name}</div></div>
+              <div class="form-group"><label class="form-label">Type</label><div>${m.type.toUpperCase()}</div></div>
+              ${m.url ? `<div class="form-group"><label class="form-label">URL</label><div style="font-family:var(--font-mono);font-size:13px;word-break:break-all">${m.url}</div></div>` : ''}
+              ${m.host ? `<div class="form-group"><label class="form-label">Host</label><div style="font-family:var(--font-mono)">${m.host}${m.port ? ':' + m.port : ''}</div></div>` : ''}
+              ${m.method && m.method !== 'GET' ? `<div class="form-group"><label class="form-label">Method</label><div>${m.method}</div></div>` : ''}
+              ${m.expectedStatus && m.expectedStatus !== 200 ? `<div class="form-group"><label class="form-label">Expected Status</label><div>${m.expectedStatus}</div></div>` : ''}
+              <div class="form-group"><label class="form-label">Timeout</label><div>${m.timeout}ms</div></div>
+              <div class="form-group"><label class="form-label">Check Interval</label><div>${m.schedule} seconds</div></div>
+              <div class="form-group"><label class="form-label">Enabled</label><div>${m.enabled ? 'Yes' : 'No'}</div></div>
+              ${m.ignoreTls ? `<div class="form-group"><label class="form-label">Ignore TLS</label><div>Yes</div></div>` : ''}
+            </div>
+
+            ${s.sslInfo ? `<div class="detail-section" style="margin-top:20px">
+              <div class="detail-section-title">SSL Certificate</div>
+              <div class="form-group"><label class="form-label">Issuer</label><div style="font-size:13px">${s.sslInfo.issuer}</div></div>
+              <div class="form-group"><label class="form-label">Valid From</label><div>${new Date(s.sslInfo.validFrom).toLocaleDateString()}</div></div>
+              <div class="form-group"><label class="form-label">Valid To</label><div>${new Date(s.sslInfo.validTo).toLocaleDateString()}</div></div>
+              <div class="form-group"><label class="form-label">Days Remaining</label><div style="color:${s.sslInfo.daysRemaining < 30 ? 'var(--danger)' : 'var(--success)'}">${s.sslInfo.daysRemaining} days</div></div>
+            </div>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderApplicationDetail(id) {
+      const app = state.applications.find(a => a.id === id);
+      if(!app) return '<div class="empty-state"><h3>Application not found</h3></div>';
+      const monitors = state.monitors.filter(m => m.applicationId === id);
+      const h = getAppHealth(id);
+      return `
+        <div class="detail-header">
+          <button class="btn btn-secondary btn-sm" onclick="goBack()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>Back</button>
+          <div class="detail-title">
+            <div class="app-icon" style="background:${app.color}20;color:${app.color};width:48px;height:48px;border-radius:var(--radius)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg></div>
+            ${app.name}
+            <span class="health-badge health-${h.health}">${h.health.toUpperCase()}</span>
+          </div>
+          <div class="detail-subtitle">${app.description || 'No description'}</div>
+          <div class="detail-meta">
+            <div class="detail-meta-item"><div class="detail-meta-label">Total Monitors</div><div class="detail-meta-value">${h.total}</div></div>
+            <div class="detail-meta-item"><div class="detail-meta-label">Up</div><div class="detail-meta-value" style="color:var(--success)">${h.up}</div></div>
+            <div class="detail-meta-item"><div class="detail-meta-label">Down</div><div class="detail-meta-value" style="color:var(--danger)">${h.down}</div></div>
+            <div class="detail-meta-item"><div class="detail-meta-label">Uptime</div><div class="detail-meta-value">${h.uptime}%</div></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:16px">
+            <button class="btn btn-primary btn-sm" onclick="showAddMonitorToAppModal('${id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>Add Monitor</button>
+            <button class="btn btn-secondary btn-sm" onclick="showApplicationModal(${JSON.stringify(app).replace(/"/g, '&quot;')})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>Edit</button>
+            <button class="btn btn-secondary btn-sm" onclick="downloadReport('application','${id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>Report</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteApplication('${id}');goBack()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>Delete</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h3 class="card-title">Monitors (${monitors.length})</h3></div>
+          ${monitors.length === 0 ? '<div class="empty-state" style="padding:60px"><h3>No monitors yet</h3><p>Add monitors to this application</p><button class="btn btn-primary" onclick="showAddMonitorToAppModal(\''+id+'\')">Add Monitor</button></div>' : `<div class="monitor-cards">${monitors.map(m => renderMonitorCard(m)).join('')}</div>`}
+        </div>
+      `;
+    }
+
+    function renderGroupDetail(id) {
+      const g = state.groups.find(x => x.id === id);
+      if(!g) return '<div class="empty-state"><h3>Group not found</h3></div>';
+      const monitors = state.monitors.filter(m => m.groupId === id);
+      const up = monitors.filter(m => state.statuses[m.id]?.status === 'UP').length;
+      const down = monitors.filter(m => state.statuses[m.id]?.status === 'DOWN').length;
+      const uptime = monitors.length > 0 ? Math.round((up / monitors.length) * 100) : 0;
+      return `
+        <div class="detail-header">
+          <button class="btn btn-secondary btn-sm" onclick="goBack()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>Back</button>
+          <div class="detail-title">
+            <div class="app-icon" style="background:${g.color||'#6366f1'}20;color:${g.color||'#6366f1'};width:48px;height:48px;border-radius:var(--radius)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></div>
+            ${g.name}
+          </div>
+          <div class="detail-subtitle">${g.description || 'No description'}</div>
+          <div class="detail-meta">
+            <div class="detail-meta-item"><div class="detail-meta-label">Total Monitors</div><div class="detail-meta-value">${monitors.length}</div></div>
+            <div class="detail-meta-item"><div class="detail-meta-label">Up</div><div class="detail-meta-value" style="color:var(--success)">${up}</div></div>
+            <div class="detail-meta-item"><div class="detail-meta-label">Down</div><div class="detail-meta-value" style="color:var(--danger)">${down}</div></div>
+            <div class="detail-meta-item"><div class="detail-meta-label">Uptime</div><div class="detail-meta-value">${uptime}%</div></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:16px">
+            <button class="btn btn-secondary btn-sm" onclick="showGroupModal(${JSON.stringify(g).replace(/"/g, '&quot;')})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteGroup('${id}');goBack()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>Delete</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h3 class="card-title">Monitors in Group (${monitors.length})</h3></div>
+          ${monitors.length === 0 ? '<div class="empty-state" style="padding:60px"><h3>No monitors in this group</h3><p>Assign monitors to this group from the monitor edit page</p></div>' : `<div class="monitor-cards">${monitors.map(m => renderMonitorCard(m)).join('')}</div>`}
+        </div>
+      `;
+    }
+
+    function renderAlerts() {
+      const active = state.alerts.filter(a => a.status === 'active');
+      const resolved = state.alerts.filter(a => a.status !== 'active');
+      return `<div class="card"><div class="card-header"><h3 class="card-title">Active Alerts (${active.length})</h3></div>${active.length === 0 ? '<div class="empty-state"><h3>All clear!</h3><p>No active alerts</p></div>' : `<div class="table-container"><table><thead><tr><th>Severity</th><th>Monitor</th><th>Message</th><th>Time</th><th>Actions</th></tr></thead><tbody>${active.map(a => `<tr><td><span class="status status-down">${a.severity}</span></td><td><strong>${a.monitorName}</strong></td><td>${a.message}</td><td>${formatTime(a.createdAt)}</td><td><button class="btn btn-sm btn-secondary" onclick="acknowledgeAlert('${a.id}')">Acknowledge</button><button class="btn btn-sm btn-success" onclick="resolveAlert('${a.id}')">Resolve</button></td></tr>`).join('')}</tbody></table></div>`}</div><div class="card"><div class="card-header"><h3 class="card-title">Alert History</h3></div>${resolved.length === 0 ? '<p style="color:var(--text-muted);text-align:center;padding:20px">No history</p>' : `<div class="table-container"><table><thead><tr><th>Status</th><th>Monitor</th><th>Message</th><th>Created</th><th>Resolved</th></tr></thead><tbody>${resolved.slice(0,20).map(a => `<tr><td><span class="status status-up">${a.status}</span></td><td>${a.monitorName}</td><td>${a.message}</td><td>${formatTime(a.createdAt)}</td><td>${a.resolvedAt?formatTime(a.resolvedAt):'-'}</td></tr>`).join('')}</tbody></table></div>`}</div>`;
+    }
+    
+    function renderIncidents() {
+      const ongoing = state.incidents.filter(i => i.status === 'ongoing');
+      const resolved = state.incidents.filter(i => i.status === 'resolved');
+      return `<div class="card"><div class="card-header"><h3 class="card-title">Ongoing Incidents (${ongoing.length})</h3></div>${ongoing.length === 0 ? '<div class="empty-state"><h3>No ongoing incidents</h3></div>' : ongoing.map(inc => `<div style="background:var(--danger-bg);border:1px solid var(--danger);border-radius:var(--radius);padding:16px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:8px"><strong style="color:var(--danger)">${inc.monitorName}</strong><span style="font-size:12px;color:var(--text-muted)">Started ${formatTime(inc.startedAt)}</span></div><p style="margin-bottom:8px">${inc.message}</p><div style="font-size:12px;color:var(--text-muted)">Duration: ${formatDuration(Date.now() - new Date(inc.startedAt))}</div></div>`).join('')}</div><div class="card"><div class="card-header"><h3 class="card-title">Resolved Incidents</h3></div>${resolved.length === 0 ? '<p style="color:var(--text-muted);text-align:center;padding:20px">No history</p>' : `<div class="table-container"><table><thead><tr><th>Monitor</th><th>Message</th><th>Started</th><th>Resolved</th><th>Duration</th></tr></thead><tbody>${resolved.slice(0,20).map(inc => `<tr><td><strong>${inc.monitorName}</strong></td><td>${inc.message}</td><td>${formatTime(inc.startedAt)}</td><td>${formatTime(inc.resolvedAt)}</td><td>${formatDuration(inc.duration)}</td></tr>`).join('')}</tbody></table></div>`}</div>`;
+    }
+    function renderContacts() {
+      return `<div class="tabs"><div class="tab active" onclick="this.parentElement.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));this.classList.add('active');document.getElementById('contactsTab').style.display='block';document.getElementById('contactGroupsTab').style.display='none'">Contacts</div><div class="tab" onclick="this.parentElement.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));this.classList.add('active');document.getElementById('contactsTab').style.display='none';document.getElementById('contactGroupsTab').style.display='block'">Contact Groups</div></div><div id="contactsTab"><div class="card"><div class="card-header"><h3 class="card-title">Contacts (${state.contacts.length})</h3><button class="btn btn-primary btn-sm" onclick="showContactModal()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>Add Contact</button></div>${state.contacts.length === 0 ? '<div class="empty-state"><h3>No contacts yet</h3></div>' : `<div class="table-container"><table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Notifications</th><th>Actions</th></tr></thead><tbody>${state.contacts.map(c => `<tr><td><strong>${c.name}</strong>${c.role?`<br><span style="font-size:12px;color:var(--text-muted)">${c.role}</span>`:''}</td><td>${c.email||'-'}</td><td>${c.phone||'-'}</td><td>${c.notifyEmail?'<span class="status status-up" style="margin-right:4px">Email</span>':''}${c.notifySms?'<span class="status status-up">SMS</span>':''}</td><td><button class="btn btn-sm btn-secondary" onclick="editContact('${c.id}')">Edit</button><button class="btn btn-sm btn-secondary" onclick="deleteContact('${c.id}')">Delete</button></td></tr>`).join('')}</tbody></table></div>`}</div></div><div id="contactGroupsTab" style="display:none"><div class="card"><div class="card-header"><h3 class="card-title">Contact Groups (${state.contactGroups.length})</h3><button class="btn btn-primary btn-sm" onclick="showContactGroupModal()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>Add Group</button></div>${state.contactGroups.length === 0 ? '<div class="empty-state"><h3>No contact groups</h3></div>' : `<div class="app-grid">${state.contactGroups.map(g => { const contacts = state.contacts.filter(c => g.contactIds?.includes(c.id)); return `<div class="app-card"><div class="app-card-header"><div class="app-icon" style="background:var(--accent)20;color:var(--accent)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg></div><div style="flex:1"><div class="app-name">${g.name}</div><span style="font-size:12px;color:var(--text-muted)">${contacts.length} contacts</span></div><button class="btn btn-sm btn-secondary" onclick="deleteContactGroup('${g.id}')">Delete</button></div><div class="app-desc">${g.description||'No description'}</div><div style="margin-top:12px">${contacts.map(c => `<span style="background:var(--bg-tertiary);padding:4px 8px;border-radius:4px;font-size:12px;margin-right:4px">${c.name}</span>`).join('')}</div></div>`; }).join('')}</div>`}</div></div>`;
+    }
+    
+    function renderActivity() {
+      return `<div class="card"><div class="card-header"><h3 class="card-title">Activity Log</h3></div>${state.activityLogs.length === 0 ? '<div class="empty-state"><h3>No activity yet</h3></div>' : `<div class="activity-list">${state.activityLogs.slice(0,50).map(a => `<div style="display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="viewActivityDetail('${a.id}')"><div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:${a.action.includes('create')?'var(--success-bg)':a.action.includes('delete')?'var(--danger-bg)':'rgba(59,130,246,0.1)'};color:${a.action.includes('create')?'var(--success)':a.action.includes('delete')?'var(--danger)':'var(--info)'}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div><div style="flex:1"><div style="font-size:14px"><strong>${a.action.replace(/_/g,' ')}</strong> - ${a.entityType}: ${a.entityName}</div><div style="font-size:12px;color:var(--text-muted)">${formatTime(a.timestamp)}</div></div></div>`).join('')}</div>`}</div>`;
+    }
+    
+    function viewActivityDetail(id) {
+      const a = state.activityLogs.find(x => x.id === id); if(!a) return;
+      showModal('Activity Detail', `<div class="form-group"><label class="form-label">Action</label><div style="font-weight:600">${a.action.replace(/_/g,' ').toUpperCase()}</div></div><div class="form-group"><label class="form-label">Entity</label><div>${a.entityType}: <strong>${a.entityName}</strong></div></div><div class="form-group"><label class="form-label">Timestamp</label><div>${new Date(a.timestamp).toLocaleString()}</div></div>${a.details?`<div class="form-group"><label class="form-label">Details</label><pre style="background:var(--bg-tertiary);padding:12px;border-radius:var(--radius);font-size:12px;overflow:auto;max-height:200px">${JSON.stringify(a.details,null,2)}</pre></div>`:''}`, [{ text:'Close', class:'btn-secondary', onclick:'closeModal()' }]);
+    }
+    
+    function renderReports() {
+      return `<div class="card"><div class="card-header"><h3 class="card-title">Generate Reports</h3></div><div class="app-grid"><div class="app-card" onclick="downloadReport('overview')"><div class="app-card-header"><div class="app-icon" style="background:var(--accent)20;color:var(--accent)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect></svg></div><div><div class="app-name">Overview Report</div><span style="font-size:12px;color:var(--text-muted)">System summary</span></div></div></div><div class="app-card" onclick="downloadReport('uptime')"><div class="app-card-header"><div class="app-icon" style="background:var(--success-bg);color:var(--success)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg></div><div><div class="app-name">Uptime Report</div><span style="font-size:12px;color:var(--text-muted)">Uptime statistics</span></div></div></div><div class="app-card" onclick="downloadReport('incidents')"><div class="app-card-header"><div class="app-icon" style="background:var(--danger-bg);color:var(--danger)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line></svg></div><div><div class="app-name">Incident Report</div><span style="font-size:12px;color:var(--text-muted)">Incident history</span></div></div></div><div class="app-card" onclick="downloadReport('alerts')"><div class="app-card-header"><div class="app-icon" style="background:var(--warning-bg);color:var(--warning)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path></svg></div><div><div class="app-name">Alerts Report</div><span style="font-size:12px;color:var(--text-muted)">Alert history</span></div></div></div><div class="app-card" onclick="downloadReport('activity')"><div class="app-card-header"><div class="app-icon" style="background:rgba(59,130,246,0.1);color:var(--info)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div><div><div class="app-name">Activity Report</div><span style="font-size:12px;color:var(--text-muted)">System activity</span></div></div></div>${state.applications.map(app => `<div class="app-card" onclick="downloadReport('application','${app.id}')"><div class="app-card-header"><div class="app-icon" style="background:${app.color}20;color:${app.color}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg></div><div><div class="app-name">${app.name} Report</div><span style="font-size:12px;color:var(--text-muted)">Application health</span></div></div></div>`).join('')}</div></div>`;
+    }
+    
+    function downloadReport(type, appId) {
+      let url = `/api/reports/${type}`; if(appId) url += `?applicationId=${appId}`;
+      window.open(url, '_blank'); showToast(`Downloading ${type} report...`, 'info');
+    }
+    
+    function renderSettings() {
+      const s = state.settings || {};
+      return `<div class="tabs"><div class="tab active" onclick="switchSettingsTab(this,'general')">General</div><div class="tab" onclick="switchSettingsTab(this,'notifications')">Notifications</div><div class="tab" onclick="switchSettingsTab(this,'email')">Email</div><div class="tab" onclick="switchSettingsTab(this,'sms')">SMS</div><div class="tab" onclick="switchSettingsTab(this,'tts')">TTS/Sound</div></div><div id="settingsGeneral" class="card"><div class="card-header"><h3 class="card-title">General Settings</h3></div><div class="form-group"><label class="form-label">Consecutive Failures Before Alert</label><input type="number" class="form-input" value="${s.consecutiveFailuresThreshold||3}" onchange="updateSetting('consecutiveFailuresThreshold',parseInt(this.value))" min="1" max="10"></div><div class="form-group"><label class="form-checkbox"><input type="checkbox" ${s.autoResolve?'checked':''} onchange="updateSetting('autoResolve',this.checked)">Auto-resolve when service recovers</label></div></div><div id="settingsNotifications" class="card" style="display:none"><div class="card-header"><h3 class="card-title">Notification Settings</h3></div><div class="form-group"><label class="form-checkbox"><input type="checkbox" ${s.browserNotifications?'checked':''} onchange="updateSetting('browserNotifications',this.checked)">Enable browser notifications</label></div><div class="form-group"><label class="form-checkbox"><input type="checkbox" ${s.soundEnabled?'checked':''} onchange="updateSetting('soundEnabled',this.checked)">Enable sound alerts</label></div><div class="form-group"><label class="form-label">Alert Volume</label><input type="range" min="0" max="100" value="${s.alertVolume||80}" onchange="updateSetting('alertVolume',parseInt(this.value))" style="width:100%"></div></div><div id="settingsEmail" class="card" style="display:none"><div class="card-header"><h3 class="card-title">Email Configuration</h3></div><div class="form-group"><label class="form-checkbox"><input type="checkbox" ${s.emailEnabled?'checked':''} onchange="updateSetting('emailEnabled',this.checked)">Enable email notifications</label></div><div class="form-row"><div class="form-group"><label class="form-label">SMTP Host</label><input type="text" class="form-input" value="${s.smtpHost||''}" placeholder="smtp.gmail.com" onchange="updateSetting('smtpHost',this.value)"></div><div class="form-group"><label class="form-label">SMTP Port</label><input type="number" class="form-input" value="${s.smtpPort||587}" onchange="updateSetting('smtpPort',parseInt(this.value))"></div></div><div class="form-row"><div class="form-group"><label class="form-label">Username</label><input type="text" class="form-input" value="${s.smtpUser||''}" onchange="updateSetting('smtpUser',this.value)"></div><div class="form-group"><label class="form-label">Password</label><input type="password" class="form-input" value="${s.smtpPass||''}" onchange="updateSetting('smtpPass',this.value)"></div></div><div class="form-group"><label class="form-label">From Address</label><input type="email" class="form-input" value="${s.smtpFrom||''}" onchange="updateSetting('smtpFrom',this.value)"></div><div class="form-group"><button class="btn btn-secondary" onclick="testEmail()">Test Email</button></div></div><div id="settingsSms" class="card" style="display:none"><div class="card-header"><h3 class="card-title">SMS Configuration</h3></div><div class="form-group"><label class="form-checkbox"><input type="checkbox" ${s.smsEnabled?'checked':''} onchange="updateSetting('smsEnabled',this.checked)">Enable SMS notifications</label></div><div class="form-group"><label class="form-label">SMS API URL</label><input type="text" class="form-input" value="${s.smsApiUrl||''}" onchange="updateSetting('smsApiUrl',this.value)"></div><div class="form-row"><div class="form-group"><label class="form-label">API Key</label><input type="password" class="form-input" value="${s.smsApiKey||''}" onchange="updateSetting('smsApiKey',this.value)"></div><div class="form-group"><label class="form-label">Sender ID</label><input type="text" class="form-input" value="${s.smsSenderId||''}" onchange="updateSetting('smsSenderId',this.value)"></div></div><div class="form-group"><label class="form-label">Body Template</label><textarea class="form-textarea" onchange="updateSetting('smsApiBodyTemplate',this.value)">${s.smsApiBodyTemplate||'{"to":"{{phone}}","message":"{{message}}"}'}</textarea><small style="color:var(--text-muted)">Use {{phone}}, {{message}}, {{senderId}}</small></div></div><div id="settingsTts" class="card" style="display:none"><div class="card-header"><h3 class="card-title">TTS & Sound</h3></div><div class="form-group"><label class="form-checkbox"><input type="checkbox" ${s.ttsEnabled?'checked':''} onchange="updateSetting('ttsEnabled',this.checked)">Enable Text-to-Speech</label></div><div class="form-group"><label class="form-label">TTS Voice</label><select class="form-select" onchange="updateSetting('ttsVoice',this.value)"><option value="default" ${s.ttsVoice==='default'?'selected':''}>Default</option><option value="Alex" ${s.ttsVoice==='Alex'?'selected':''}>Alex</option><option value="Samantha" ${s.ttsVoice==='Samantha'?'selected':''}>Samantha</option></select></div><div class="form-group"><label class="form-label">Speech Rate</label><input type="range" min="0.5" max="2" step="0.1" value="${s.ttsRate||1}" onchange="updateSetting('ttsRate',parseFloat(this.value))" style="width:100%"></div><div class="form-group"><label class="form-label">Custom Alert Text</label><textarea class="form-textarea" onchange="updateSetting('customAlertText',this.value)" placeholder="Leave empty to read alert message">${s.customAlertText||''}</textarea></div><div class="form-group"><button class="btn btn-secondary" onclick="testTts()">Test TTS</button></div></div>`;
+    }
+    
+    let currentSettingsTab = 'general';
+    
+    function switchSettingsTab(el, tab) {
+      currentSettingsTab = tab;
+      el.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+      ['General','Notifications','Email','Sms','Tts'].forEach(t => document.getElementById('settings'+t).style.display = t.toLowerCase() === tab ? 'block' : 'none');
+    }
+    
+    function updateSetting(key, value) {
+      socket.emit('settings:update', { [key]: value }, (r) => { if(r.success) showToast('Setting updated', 'success'); else showToast('Failed', 'error'); });
+    }
+    
+    function testEmail() {
+      const email = prompt('Enter email address:');
+      if(email) fetch('/api/settings/test-email', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...state.settings, testEmail: email }) }).then(r => r.json()).then(r => { if(r.success) showToast('Test email sent!', 'success'); else showToast('Failed: ' + r.error, 'error'); });
+    }
+    
+    function testTts() {
+      socket.emit('settings:test-tts', 'This is a test of the text to speech system.', (r) => { if(r.success) showToast('TTS test initiated', 'success'); else showToast('TTS failed: ' + (r.error||r.reason), 'error'); });
+    }
+    function showModal(title, content, buttons = []) {
+      document.getElementById('modalTitle').textContent = title;
+      document.getElementById('modalBody').innerHTML = content;
+      document.getElementById('modalFooter').innerHTML = buttons.map(b => `<button class="btn ${b.class||'btn-secondary'}" onclick="${b.onclick}">${b.text}</button>`).join('');
+      document.getElementById('modalOverlay').classList.add('active');
+    }
+    
+    function closeModal() {
+      document.getElementById('modalOverlay').classList.remove('active');
+      state.editingId = null;
+    }
+    
+    document.getElementById('modalOverlay').addEventListener('click', (e) => { if(e.target.id === 'modalOverlay') closeModal(); });
+    
+    function showAddModal() {
+      switch(state.currentPage) {
+        case 'applications': showApplicationModal(); break;
+        case 'monitors': showMonitorModal(); break;
+        case 'groups': showGroupModal(); break;
+        case 'contacts': showContactModal(); break;
+        default: showMonitorModal();
+      }
+    }
+    
+    function showMonitorModal(m = null) {
+      const isEditing = m && m.id;
+      state.editingId = isEditing ? m.id : null;
+      m = m || { name:'', type:'http', url:'', host:'', port:'', username:'', password:'', method:'GET', expectedStatus:200, timeout:10000, schedule:60, enabled:true, applicationId:'', groupId:'', sshSudo:false, ignoreTls:false };
+      showModal(isEditing ? 'Edit Monitor' : 'Add Monitor', `<div class="form-group"><label class="form-label">Name *</label><input type="text" class="form-input" id="monitorName" value="${m.name}" placeholder="My Website"></div><div class="form-row"><div class="form-group"><label class="form-label">Type *</label><select class="form-select" id="monitorType" onchange="updateMonitorFields()"><option value="http" ${m.type==='http'?'selected':''}>HTTP/HTTPS</option><option value="icmp" ${m.type==='icmp'?'selected':''}>ICMP (Ping)</option><option value="tcp" ${m.type==='tcp'?'selected':''}>TCP Port</option><option value="ssh" ${m.type==='ssh'?'selected':''}>SSH</option><option value="telnet" ${m.type==='telnet'?'selected':''}>Telnet</option><option value="sftp" ${m.type==='sftp'?'selected':''}>SFTP</option></select></div><div class="form-group"><label class="form-label">Interval (seconds)</label><input type="number" class="form-input" id="monitorSchedule" value="${m.schedule}" min="10"></div></div><div id="httpFields" style="${['http','https'].includes(m.type)?'':'display:none'}"><div class="form-group"><label class="form-label">URL *</label><input type="text" class="form-input" id="monitorUrl" value="${m.url||''}" placeholder="https://example.com"></div><div class="form-row"><div class="form-group"><label class="form-label">Method</label><select class="form-select" id="monitorMethod">${['GET','POST','PUT','DELETE','HEAD'].map(x => `<option value="${x}" ${m.method===x?'selected':''}>${x}</option>`).join('')}</select></div><div class="form-group"><label class="form-label">Expected Status</label><input type="number" class="form-input" id="monitorExpectedStatus" value="${m.expectedStatus}"></div></div><div class="form-group"><label class="form-checkbox"><input type="checkbox" id="monitorIgnoreTls" ${m.ignoreTls?'checked':''}>Ignore TLS errors</label></div></div><div id="hostFields" style="${['icmp','tcp','ssh','telnet','sftp'].includes(m.type)?'':'display:none'}"><div class="form-row"><div class="form-group"><label class="form-label">Host *</label><input type="text" class="form-input" id="monitorHost" value="${m.host||''}" placeholder="192.168.1.1"></div><div class="form-group" id="portGroup" style="${['tcp','ssh','telnet','sftp'].includes(m.type)?'':'display:none'}"><label class="form-label">Port</label><input type="number" class="form-input" id="monitorPort" value="${m.port||''}" placeholder="22"></div></div></div><div id="authFields" style="${['ssh','sftp'].includes(m.type)?'':'display:none'}"><div class="form-row"><div class="form-group"><label class="form-label">Username</label><input type="text" class="form-input" id="monitorUsername" value="${m.username||''}"></div><div class="form-group"><label class="form-label">Password</label><input type="password" class="form-input" id="monitorPassword" value="${m.password==='***'?'':(m.password||'')}"></div></div><div class="form-group"><label class="form-label">Private Key</label><textarea class="form-textarea" id="monitorPrivateKey" placeholder="-----BEGIN RSA PRIVATE KEY-----">${m.privateKey==='***'?'':(m.privateKey||'')}</textarea></div><div class="form-group"><label class="form-checkbox"><input type="checkbox" id="monitorSshSudo" ${m.sshSudo?'checked':''} onchange="document.getElementById('sudoPasswordGroup').style.display=this.checked?'block':'none'">Enable sudo</label></div><div class="form-group" id="sudoPasswordGroup" style="${m.sshSudo?'':'display:none'}"><label class="form-label">Sudo Password</label><input type="password" class="form-input" id="monitorSshSudoPassword" value="${m.sshSudoPassword==='***'?'':(m.sshSudoPassword||'')}"></div></div><div class="form-row"><div class="form-group"><label class="form-label">Application</label><select class="form-select" id="monitorApplicationId"><option value="">None</option>${state.applications.map(a => `<option value="${a.id}" ${m.applicationId===a.id?'selected':''}>${a.name}</option>`).join('')}</select></div><div class="form-group"><label class="form-label">Group</label><select class="form-select" id="monitorGroupId"><option value="">None</option>${state.groups.map(g => `<option value="${g.id}" ${m.groupId===g.id?'selected':''}>${g.name}</option>`).join('')}</select></div></div><div class="form-group"><label class="form-label">Timeout (ms)</label><input type="number" class="form-input" id="monitorTimeout" value="${m.timeout}"></div><div class="form-group"><label class="form-checkbox"><input type="checkbox" id="monitorEnabled" ${m.enabled?'checked':''}>Enabled</label></div>`, [{ text:'Cancel', class:'btn-secondary', onclick:'closeModal()' }, { text:'Test', class:'btn-secondary', onclick:'testMonitorConfig()' }, { text:state.editingId?'Update':'Create', class:'btn-primary', onclick:'saveMonitor()' }]);
+    }
+    
+    function updateMonitorFields() {
+      const type = document.getElementById('monitorType').value;
+      document.getElementById('httpFields').style.display = ['http','https'].includes(type) ? '' : 'none';
+      document.getElementById('hostFields').style.display = ['icmp','tcp','ssh','telnet','sftp'].includes(type) ? '' : 'none';
+      document.getElementById('portGroup').style.display = ['tcp','ssh','telnet','sftp'].includes(type) ? '' : 'none';
+      document.getElementById('authFields').style.display = ['ssh','sftp'].includes(type) ? '' : 'none';
+    }
+    
+    function getMonitorFormData() {
+      return { name:document.getElementById('monitorName').value, type:document.getElementById('monitorType').value, url:document.getElementById('monitorUrl')?.value||null, host:document.getElementById('monitorHost')?.value||null, port:parseInt(document.getElementById('monitorPort')?.value)||null, username:document.getElementById('monitorUsername')?.value||null, password:document.getElementById('monitorPassword')?.value||null, privateKey:document.getElementById('monitorPrivateKey')?.value||null, sshSudo:document.getElementById('monitorSshSudo')?.checked||false, sshSudoPassword:document.getElementById('monitorSshSudoPassword')?.value||null, method:document.getElementById('monitorMethod')?.value||'GET', expectedStatus:parseInt(document.getElementById('monitorExpectedStatus')?.value)||200, ignoreTls:document.getElementById('monitorIgnoreTls')?.checked||false, timeout:parseInt(document.getElementById('monitorTimeout').value)||10000, schedule:parseInt(document.getElementById('monitorSchedule').value)||60, applicationId:document.getElementById('monitorApplicationId').value||null, groupId:document.getElementById('monitorGroupId').value||null, enabled:document.getElementById('monitorEnabled').checked };
+    }
+    
+    function testMonitorConfig() {
+      const data = getMonitorFormData(); showToast('Testing...', 'info');
+      socket.emit('monitor:test', data, (r) => { if(r.success) showToast(`${r.result.status}: ${r.result.message} (${r.result.responseTime}ms)`, r.result.status==='UP'?'success':'error'); else showToast('Failed: ' + (r.errors?.join(', ')||r.error), 'error'); });
+    }
+    
+    function saveMonitor() {
+      const data = getMonitorFormData();
+      if(state.editingId) socket.emit('monitor:update', { id: state.editingId, ...data }, (r) => { if(r.success) { showToast('Monitor updated', 'success'); closeModal(); } else showToast('Failed: ' + (r.errors?.join(', ')||r.error), 'error'); });
+      else socket.emit('monitor:create', data, (r) => { if(r.success) { showToast('Monitor created', 'success'); closeModal(); } else showToast('Failed: ' + (r.errors?.join(', ')||r.error), 'error'); });
+    }
+    
+    function editMonitor(id) { const m = state.monitors.find(x => x.id === id); if(m) showMonitorModal(m); }
+    function deleteMonitor(id) { if(confirm('Delete this monitor?')) socket.emit('monitor:delete', id, (r) => { if(r.success) showToast('Deleted', 'success'); else showToast('Failed', 'error'); }); }
+    function toggleMonitor(id) { socket.emit('monitor:toggle', id, (r) => { if(r.success) showToast(r.enabled?'Enabled':'Disabled', 'success'); }); }
+    function checkMonitorNow(id) { socket.emit('monitor:check-now', id, (r) => { if(r.success) showToast('Check initiated', 'success'); }); }
+    
+    function showApplicationModal(a = null) {
+      const isEditing = a && a.id;
+      state.editingId = isEditing ? a.id : null;
+      a = a || { name:'', description:'', icon:'box', color:'#6366f1' };
+      showModal(isEditing ? 'Edit Application' : 'Add Application', `<div class="form-group"><label class="form-label">Name *</label><input type="text" class="form-input" id="appName" value="${a.name}"></div><div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="appDescription">${a.description||''}</textarea></div><div class="form-row"><div class="form-group"><label class="form-label">Icon</label><select class="form-select" id="appIcon">${['box','server','database','globe','cloud','cpu'].map(i => `<option value="${i}" ${a.icon===i?'selected':''}>${i}</option>`).join('')}</select></div><div class="form-group"><label class="form-label">Color</label><input type="color" class="form-input" id="appColor" value="${a.color}" style="height:42px"></div></div>`, [{ text:'Cancel', class:'btn-secondary', onclick:'closeModal()' }, { text:state.editingId?'Update':'Create', class:'btn-primary', onclick:'saveApplication()' }]);
+    }
+    
+    function saveApplication() {
+      const data = { name:document.getElementById('appName').value, description:document.getElementById('appDescription').value, icon:document.getElementById('appIcon').value, color:document.getElementById('appColor').value };
+      if(state.editingId) socket.emit('application:update', { id: state.editingId, ...data }, (r) => { if(r.success) { showToast('Updated', 'success'); closeModal(); } else showToast('Failed', 'error'); });
+      else socket.emit('application:create', data, (r) => { if(r.success) { showToast('Created', 'success'); closeModal(); } else showToast('Failed', 'error'); });
+    }
+    
+    function deleteApplication(id) { if(confirm('Delete this application?')) socket.emit('application:delete', id, (r) => { if(r.success) showToast('Deleted', 'success'); }); }
+    
+    function showAddMonitorToAppModal(appId) {
+      const unassigned = state.monitors.filter(m => m.applicationId !== appId);
+      if(unassigned.length === 0) { showToast('No unassigned monitors', 'warning'); return; }
+      showModal('Add Monitor to Application', `<div class="form-group"><label class="form-label">Select Monitor</label><select class="form-select" id="monitorToAdd">${unassigned.map(m => `<option value="${m.id}">${m.name} (${m.type})</option>`).join('')}</select></div>`, [{ text:'Cancel', class:'btn-secondary', onclick:'closeModal()' }, { text:'Add', class:'btn-primary', onclick:`addMonitorToApp('${appId}')` }]);
+    }
+    
+    function addMonitorToApp(appId) {
+      const monitorId = document.getElementById('monitorToAdd').value;
+      socket.emit('application:add-monitor', { applicationId: appId, monitorId }, (r) => { if(r.success) { showToast('Added', 'success'); closeModal(); } else showToast('Failed', 'error'); });
+    }
+    
+    function showGroupModal(g = null) {
+      const isEditing = g && g.id;
+      state.editingId = isEditing ? g.id : null;
+      g = g || { name:'', description:'', icon:'folder', color:'#6366f1' };
+      showModal(isEditing ? 'Edit Group' : 'Add Group', `<div class="form-group"><label class="form-label">Name *</label><input type="text" class="form-input" id="groupName" value="${g.name}"></div><div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="groupDescription">${g.description||''}</textarea></div><div class="form-row"><div class="form-group"><label class="form-label">Icon</label><select class="form-select" id="groupIcon">${['folder','server','database','globe','cloud','building'].map(i => `<option value="${i}" ${g.icon===i?'selected':''}>${i}</option>`).join('')}</select></div><div class="form-group"><label class="form-label">Color</label><input type="color" class="form-input" id="groupColor" value="${g.color}" style="height:42px"></div></div>`, [{ text:'Cancel', class:'btn-secondary', onclick:'closeModal()' }, { text:state.editingId?'Update':'Create', class:'btn-primary', onclick:'saveGroup()' }]);
+    }
+    
+    function saveGroup() {
+      const data = { name:document.getElementById('groupName').value, description:document.getElementById('groupDescription').value, icon:document.getElementById('groupIcon').value, color:document.getElementById('groupColor').value };
+      if(state.editingId) socket.emit('group:update', { id: state.editingId, ...data }, (r) => { if(r.success) { showToast('Updated', 'success'); closeModal(); } else showToast('Failed', 'error'); });
+      else socket.emit('group:create', data, (r) => { if(r.success) { showToast('Created', 'success'); closeModal(); } else showToast('Failed', 'error'); });
+    }
+    
+    function deleteGroup(id) { if(confirm('Delete this group?')) socket.emit('group:delete', id, (r) => { if(r.success) showToast('Deleted', 'success'); }); }
+    function showContactModal(c = null) {
+      const isEditing = c && c.id;
+      state.editingId = isEditing ? c.id : null;
+      c = c || { name:'', email:'', phone:'', role:'', notifyEmail:true, notifySms:false, notifyOnDown:true, notifyOnUp:true };
+      showModal(isEditing ? 'Edit Contact' : 'Add Contact', `<div class="form-group"><label class="form-label">Name *</label><input type="text" class="form-input" id="contactName" value="${c.name}"></div><div class="form-row"><div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="contactEmail" value="${c.email||''}"></div><div class="form-group"><label class="form-label">Phone</label><input type="tel" class="form-input" id="contactPhone" value="${c.phone||''}"></div></div><div class="form-group"><label class="form-label">Role</label><input type="text" class="form-input" id="contactRole" value="${c.role||''}"></div><div class="form-group"><label class="form-label">Notification Methods</label><div style="display:flex;gap:16px"><label class="form-checkbox"><input type="checkbox" id="contactNotifyEmail" ${c.notifyEmail?'checked':''}>Email</label><label class="form-checkbox"><input type="checkbox" id="contactNotifySms" ${c.notifySms?'checked':''}>SMS</label></div></div><div class="form-group"><label class="form-label">Notify On</label><div style="display:flex;gap:16px"><label class="form-checkbox"><input type="checkbox" id="contactNotifyOnDown" ${c.notifyOnDown?'checked':''}>Service Down</label><label class="form-checkbox"><input type="checkbox" id="contactNotifyOnUp" ${c.notifyOnUp?'checked':''}>Service Up</label></div></div>`, [{ text:'Cancel', class:'btn-secondary', onclick:'closeModal()' }, { text:state.editingId?'Update':'Create', class:'btn-primary', onclick:'saveContact()' }]);
+    }
+    
+    function saveContact() {
+      const data = { name:document.getElementById('contactName').value, email:document.getElementById('contactEmail').value||null, phone:document.getElementById('contactPhone').value||null, role:document.getElementById('contactRole').value||null, notifyEmail:document.getElementById('contactNotifyEmail').checked, notifySms:document.getElementById('contactNotifySms').checked, notifyOnDown:document.getElementById('contactNotifyOnDown').checked, notifyOnUp:document.getElementById('contactNotifyOnUp').checked };
+      if(state.editingId) socket.emit('contact:update', { id: state.editingId, ...data }, (r) => { if(r.success) { showToast('Updated', 'success'); closeModal(); } else showToast('Failed', 'error'); });
+      else socket.emit('contact:create', data, (r) => { if(r.success) { showToast('Created', 'success'); closeModal(); } else showToast('Failed', 'error'); });
+    }
+    
+    function editContact(id) { const c = state.contacts.find(x => x.id === id); if(c) showContactModal(c); }
+    function deleteContact(id) { if(confirm('Delete this contact?')) socket.emit('contact:delete', id, (r) => { if(r.success) showToast('Deleted', 'success'); }); }
+    
+    function showContactGroupModal(g = null) {
+      const isEditing = g && g.id;
+      state.editingId = isEditing ? g.id : null;
+      g = g || { name:'', description:'', contactIds:[] };
+      showModal(isEditing ? 'Edit Contact Group' : 'Add Contact Group', `<div class="form-group"><label class="form-label">Name *</label><input type="text" class="form-input" id="contactGroupName" value="${g.name}"></div><div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="contactGroupDescription">${g.description||''}</textarea></div><div class="form-group"><label class="form-label">Members</label>${state.contacts.map(c => `<label class="form-checkbox" style="display:block;margin-bottom:8px"><input type="checkbox" class="contactGroupMember" value="${c.id}" ${g.contactIds?.includes(c.id)?'checked':''}>${c.name} ${c.email?`(${c.email})`:''}</label>`).join('')}${state.contacts.length===0?'<p style="color:var(--text-muted)">No contacts</p>':''}</div>`, [{ text:'Cancel', class:'btn-secondary', onclick:'closeModal()' }, { text:state.editingId?'Update':'Create', class:'btn-primary', onclick:'saveContactGroup()' }]);
+    }
+    
+    function saveContactGroup() {
+      const contactIds = Array.from(document.querySelectorAll('.contactGroupMember:checked')).map(c => c.value);
+      const data = { name:document.getElementById('contactGroupName').value, description:document.getElementById('contactGroupDescription').value, contactIds };
+      if(state.editingId) socket.emit('contactGroup:update', { id: state.editingId, ...data }, (r) => { if(r.success) { showToast('Updated', 'success'); closeModal(); } else showToast('Failed', 'error'); });
+      else socket.emit('contactGroup:create', data, (r) => { if(r.success) { showToast('Created', 'success'); closeModal(); } else showToast('Failed', 'error'); });
+    }
+    
+    function deleteContactGroup(id) { if(confirm('Delete this contact group?')) socket.emit('contactGroup:delete', id, (r) => { if(r.success) showToast('Deleted', 'success'); }); }
+    
+    function showTerminal(monitorId) {
+      const m = state.monitors.find(x => x.id === monitorId); if(!m) return;
+      showModal(`Terminal: ${m.name}`, `<div class="terminal"><div class="terminal-header"><div class="terminal-dots"><div class="terminal-dot red"></div><div class="terminal-dot yellow"></div><div class="terminal-dot green"></div></div><span style="margin-left:auto;font-size:12px;color:var(--text-muted)">${m.username}@${m.host}</span></div><div class="terminal-body" id="terminalOutput"><div style="color:var(--text-muted)">Connected to ${m.host}</div><div style="color:var(--text-muted)">Type commands below. ${m.sshSudo?'Sudo enabled.':''}</div></div><div class="terminal-input-line"><span class="terminal-prompt">$</span><input type="text" class="terminal-input" id="terminalInput" placeholder="Enter command..." onkeydown="if(event.key==='Enter')executeCommand('${monitorId}')"></div></div>`, [{ text:'Close', class:'btn-secondary', onclick:'closeModal()' }]);
+      setTimeout(() => document.getElementById('terminalInput').focus(), 100);
+    }
+    
+    function executeCommand(monitorId) {
+      const input = document.getElementById('terminalInput');
+      const output = document.getElementById('terminalOutput');
+      const cmd = input.value.trim(); if(!cmd) return;
+      output.innerHTML += `<div><span class="terminal-prompt">$</span> ${escapeHtml(cmd)}</div>`;
+      input.value = '';
+      socket.emit('monitor:execute-command', { monitorId, command: cmd }, (r) => {
+        if(r.success) { output.innerHTML += `<div class="terminal-output">${escapeHtml(r.stdout)}</div>`; if(r.stderr) output.innerHTML += `<div class="terminal-error">${escapeHtml(r.stderr)}</div>`; }
+        else output.innerHTML += `<div class="terminal-error">Error: ${r.error}</div>`;
+        output.scrollTop = output.scrollHeight;
+      });
+    }
+    
+    function acknowledgeAlert(id) { socket.emit('alert:acknowledge', id, (r) => { if(r.success) showToast('Acknowledged', 'success'); }); }
+    function resolveAlert(id) { socket.emit('alert:resolve', id, (r) => { if(r.success) showToast('Resolved', 'success'); }); }
+    
+    function exportConfig() {
+      socket.emit('export', (r) => {
+        if(r.success) { const blob = new Blob([JSON.stringify(r.data, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `pulse-monitor-export-${new Date().toISOString().split('T')[0]}.json`; a.click(); URL.revokeObjectURL(url); showToast('Exported', 'success'); }
+      });
+    }
+    
+    function importConfig(event) {
+      const file = event.target.files[0]; if(!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => { try { const data = JSON.parse(e.target.result); socket.emit('import', data, (r) => { if(r.success) showToast('Imported', 'success'); else showToast('Failed: ' + r.error, 'error'); }); } catch(err) { showToast('Invalid JSON', 'error'); } };
+      reader.readAsText(file); event.target.value = '';
+    }
+    
+    function playAlertSound(alert) {
+      if(!alert || !state.settings.soundEnabled) return;
+      if(state.settings.ttsEnabled && 'speechSynthesis' in window) {
+        const text = state.settings.customAlertText || `Alert! ${alert.monitorName} is down. ${alert.message}`;
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = state.settings.ttsRate || 1;
+        utterance.volume = (state.settings.alertVolume || 80) / 100;
+        speechSynthesis.speak(utterance);
+      }
+      if(state.settings.browserNotifications && 'Notification' in window) {
+        if(Notification.permission === 'granted') new Notification('Pulse Monitor Alert', { body: `${alert.monitorName}: ${alert.message}` });
+        else if(Notification.permission !== 'denied') Notification.requestPermission();
+      }
+    }
+    
+    function showToast(message, type = 'info', duration = 3000) {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${type==='success'?'<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline>':type==='error'?'<circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line>':'<circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line>'}</svg><span>${message}</span>`;
+      container.appendChild(toast);
+      const timeout = setTimeout(() => {
+        toast.style.animation = 'slideIn 0.3s ease reverse';
+        setTimeout(() => toast.remove(), 300);
+      }, duration);
+      toast.addEventListener('click', () => {
+        clearTimeout(timeout);
+        toast.remove();
+      });
+    }
+    
+    function updateNetworkStatus(networkStatus) {
+      const statusEl = document.getElementById('networkStatus');
+      if (!statusEl) return;
+      
+      if (networkStatus.isConnected) {
+        statusEl.className = 'status status-up';
+        statusEl.querySelector('span:last-child').textContent = 'Connected';
+      } else {
+        statusEl.className = 'status status-down';
+        statusEl.querySelector('span:last-child').textContent = 'Disconnected';
+        showToast('Internet connectivity lost!', 'error', 5000);
+      }
+    }
+    
+    function formatTime(dateString) {
+      const date = new Date(dateString); const now = new Date(); const diff = now - date;
+      if(diff < 60000) return 'Just now';
+      if(diff < 3600000) return `${Math.floor(diff/60000)}m ago`;
+      if(diff < 86400000) return `${Math.floor(diff/3600000)}h ago`;
+      return date.toLocaleDateString();
+    }
+    
+    function formatDuration(ms) {
+      if(!ms) return '-';
+      const seconds = Math.floor(ms/1000); const minutes = Math.floor(seconds/60); const hours = Math.floor(minutes/60); const days = Math.floor(hours/24);
+      if(days > 0) return `${days}d ${hours%24}h`;
+      if(hours > 0) return `${hours}h ${minutes%60}m`;
+      if(minutes > 0) return `${minutes}m ${seconds%60}s`;
+      return `${seconds}s`;
+    }
+    
+    function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text; return div.innerHTML; }
+    
+    // Request notification permission on load
+    if('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+  </script>
+</body>
+</html>

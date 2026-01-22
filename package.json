@@ -1,0 +1,43 @@
+{
+  "name": "pulse-monitor",
+  "version": "4.0.0",
+  "description": "Pulse Monitor - Professional Real-time Infrastructure Monitoring System with Applications, Components, Persistence & Alerting",
+  "main": "server.js",
+  "scripts": {
+    "dev": "nodemon server.js",
+    "start": "node server.js",
+    "test": "node test.js"
+  },
+  "author": "Gashie",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.1",
+    "socket.io": "^4.7.5",
+    "axios": "^1.7.7",
+    "ping": "^0.4.4",
+    "ssh2": "^1.16.0",
+    "telnet-client": "^2.2.1",
+    "uuid": "^9.0.1",
+    "nodemailer": "^6.9.15",
+    "pdfkit": "^0.15.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "monitoring",
+    "real-time",
+    "websocket",
+    "infrastructure",
+    "uptime",
+    "alerting",
+    "applications",
+    "components",
+    "tts",
+    "email",
+    "sms"
+  ]
+}
